@@ -229,9 +229,9 @@ class RotatedBoxes(Boxes):
         """
         return RotatedBoxes(self.tensor.clone())
 
-    def to(self, device: torch.device):
+    def to(self, device: torch.device, non_blocking: bool = False):
         # Boxes are assumed float32 and does not support to(dtype)
-        return RotatedBoxes(self.tensor.to(device=device))
+        return RotatedBoxes(self.tensor.to(device=device, non_blocking=non_blocking))
 
     def area(self) -> torch.Tensor:
         """
@@ -244,11 +244,13 @@ class RotatedBoxes(Boxes):
         area = box[:, 2] * box[:, 3]
         return area
 
+    # Avoid in-place operations so that we can torchscript; NOTE: this creates a new tensor
     def normalize_angles(self) -> None:
         """
         Restrict angles to the range of [-180, 180) degrees
         """
-        self.tensor[:, 4] = (self.tensor[:, 4] + 180.0) % 360.0 - 180.0
+        angle_tensor = (self.tensor[:, 4] + 180.0) % 360.0 - 180.0
+        self.tensor = torch.cat((self.tensor[:, :4], angle_tensor[:, None]), dim=1)
 
     def clip(self, box_size: Tuple[int, int], clip_angle_threshold: float = 1.0) -> None:
         """

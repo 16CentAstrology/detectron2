@@ -108,6 +108,12 @@ class TestAspectRatioGrouping(unittest.TestCase):
                 self.assertLess(len(bucket), batchsize)
 
 
+class _MyData(torch.utils.data.IterableDataset):
+    def __iter__(self):
+        while True:
+            yield 1
+
+
 class TestDataLoader(unittest.TestCase):
     def _get_kwargs(self):
         # get kwargs of build_detection_train_loader
@@ -131,14 +137,8 @@ class TestDataLoader(unittest.TestCase):
 
     def test_build_iterable_dataloader_from_cfg(self):
         cfg = get_cfg()
-
-        class MyData(torch.utils.data.IterableDataset):
-            def __iter__(self):
-                while True:
-                    yield 1
-
         cfg.DATASETS.TRAIN = ["iter_data"]
-        DatasetCatalog.register("iter_data", lambda: MyData())
+        DatasetCatalog.register("iter_data", lambda: _MyData())
         dl = build_detection_train_loader(cfg, mapper=lambda x: x, aspect_ratio_grouping=False)
         next(iter(dl))
 
@@ -159,6 +159,31 @@ class TestDataLoader(unittest.TestCase):
         sampler = InferenceSampler(len(ds))
         dl = build_batch_data_loader(ds, sampler, 8, num_workers=3)
         self._check_is_range(dl, N)
+
+    def test_build_batch_dataloader_inference_incomplete_batch(self):
+        # Test that build_batch_data_loader works when dataset size is not multiple of
+        # batch size or num_workers
+        def _test(N, batch_size, num_workers):
+            ds = DatasetFromList(list(range(N)))
+            sampler = InferenceSampler(len(ds))
+
+            dl = build_batch_data_loader(ds, sampler, batch_size, num_workers=num_workers)
+            data = list(iter(dl))
+            self.assertEqual(len(data), len(dl))  # floor(N / batch_size)
+            self._check_is_range(dl, N // batch_size * batch_size)
+
+            dl = build_batch_data_loader(
+                ds, sampler, batch_size, num_workers=num_workers, drop_last=False
+            )
+            data = list(iter(dl))
+            self.assertEqual(len(data), len(dl))  # ceil(N / batch_size)
+            self._check_is_range(dl, N)
+
+        _test(48, batch_size=8, num_workers=3)
+        _test(47, batch_size=8, num_workers=3)
+        _test(46, batch_size=8, num_workers=3)
+        _test(40, batch_size=8, num_workers=3)
+        _test(39, batch_size=8, num_workers=3)
 
     def test_build_dataloader_inference(self):
         N = 50

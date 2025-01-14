@@ -1,5 +1,7 @@
 # Copyright (c) Facebook, Inc. and its affiliates.
 
+# pyre-unsafe
+
 import itertools
 import logging
 import numpy as np
@@ -482,11 +484,11 @@ def build_detection_test_loader(cfg, dataset_name, mapper=None):
     dataset_dicts = combine_detection_dataset_dicts(
         [dataset_name],
         keep_instance_predicate=_get_test_keep_instance_predicate(cfg),
-        proposal_files=[
-            cfg.DATASETS.PROPOSAL_FILES_TEST[list(cfg.DATASETS.TEST).index(dataset_name)]
-        ]
-        if cfg.MODEL.LOAD_PROPOSALS
-        else None,
+        proposal_files=(
+            [cfg.DATASETS.PROPOSAL_FILES_TEST[list(cfg.DATASETS.TEST).index(dataset_name)]]
+            if cfg.MODEL.LOAD_PROPOSALS
+            else None
+        ),
     )
     sampler = None
     if not cfg.DENSEPOSE_EVALUATION.DISTRIBUTED_INFERENCE:
@@ -709,7 +711,7 @@ def build_video_list_dataset(meta: Metadata, cfg: CfgNode):
         frame_selector = build_frame_selector(cfg.SELECT)
         transform = build_transform(cfg.TRANSFORM, data_type="image")
         video_list = video_list_from_file(video_list_fpath, video_base_path)
-        keyframe_helper_fpath = cfg.KEYFRAME_HELPER if hasattr(cfg, "KEYFRAME_HELPER") else None
+        keyframe_helper_fpath = getattr(cfg, "KEYFRAME_HELPER", None)
         return VideoKeyframeDataset(
             video_list, category, frame_selector, transform, keyframe_helper_fpath
         )

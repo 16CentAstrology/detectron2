@@ -11,6 +11,8 @@ import time
 import weakref
 from collections import OrderedDict
 from typing import Any, Dict, List
+import pytorch_lightning as pl  # type: ignore
+from pytorch_lightning import LightningDataModule, LightningModule
 
 import detectron2.utils.comm as comm
 from detectron2.checkpoint import DetectionCheckpointer
@@ -31,8 +33,6 @@ from detectron2.solver import build_lr_scheduler, build_optimizer
 from detectron2.utils.events import EventStorage
 from detectron2.utils.logger import setup_logger
 
-import pytorch_lightning as pl  # type: ignore
-from pytorch_lightning import LightningDataModule, LightningModule
 from train_net import build_evaluator
 
 logging.basicConfig(level=logging.INFO)
@@ -94,7 +94,9 @@ class TrainingModule(LightningModule):
 
         opt = self.optimizers()
         self.storage.put_scalar(
-            "lr", opt.param_groups[self._best_param_group_id]["lr"], smoothing_hint=False
+            "lr",
+            opt.param_groups[self._best_param_group_id]["lr"],
+            smoothing_hint=False,
         )
         self.iteration_timer.after_step()
         self.storage.step()
@@ -232,8 +234,12 @@ def setup(args):
     return cfg
 
 
-if __name__ == "__main__":
+def invoke_main() -> None:
     parser = default_argument_parser()
     args = parser.parse_args()
     logger.info("Command Line Args:", args)
     main(args)
+
+
+if __name__ == "__main__":
+    invoke_main()  # pragma: no cover
